@@ -4500,11 +4500,9 @@
                 {
                   key: 0,
                   class: "setting-modal modal",
-                  onWheel:
-                    _cache[100] ||
-                    (_cache[100] = (...args) =>
-                      $options.handleModalWheel &&
-                      $options.handleModalWheel(...args)),
+                  onWheel: (...args) =>
+                    $options.handleModalWheel &&
+                    $options.handleModalWheel(...args),
                 },
                 [
                 vue.createElementVNode("div", {
@@ -6616,7 +6614,7 @@
         if (m) replyFloor = m[1];
       }
       if (replyUser) {
-        replyInfo = `@${replyUser} `;
+        replyInfo = `@${replyUser} ${replyFloor ? `#${replyFloor} ` : ""}`;
       }
       const emits = __emit;
       const post = vue.inject("post");
@@ -6732,7 +6730,7 @@
         if (useType === "reply-comment" && targetUser) {
           let userCallRegex = new RegExp(`@${targetUser}(?=[\\s#]|$)`);
           if (!userCallRegex.test(submit_content)) {
-            let callPrefix = `@${targetUser} `;
+            let callPrefix = `@${targetUser} ${replyFloor ? `#${replyFloor} ` : ""}`;
             submit_content = callPrefix + submit_content.trimStart();
             contentForShow = callPrefix + contentForShow.trimStart();
           }

@@ -285,13 +285,14 @@
       if (!config) throw new Error("未配置 WebDAV");
 
       const localData = this.getLocalData();
+      const storage = await getStorage(false);
       const storageData = await new Promise((r) =>
-        chrome.storage.local.get(["v2p_nav_config", "options"], (res) =>
+        chrome.storage.local.get(["v2p_nav_config"], (res) =>
           r(res || {}),
         ),
       );
       localData.navConfig = storageData["v2p_nav_config"];
-      localData.options = storageData["options"];
+      localData.options = storage.options;
 
       return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(
@@ -315,7 +316,7 @@
       const config = await this.getConfig();
       if (!config) throw new Error("未配置 WebDAV");
 
-      return new Promise((resolve, reject) => {
+      const remoteData = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(
           {
             type: "v2p_sync_pull",
@@ -348,12 +349,7 @@
                     v2p_nav_config: remoteData.navConfig,
                   });
                 }
-                if (remoteData.options) {
-                  chrome.storage.local.set({
-                    options: remoteData.options,
-                  });
-                }
-                resolve(true);
+                resolve(remoteData);
               } else {
                 reject(new Error("云端文件为空"));
               }
@@ -363,6 +359,11 @@
           },
         );
       });
+      if (remoteData.options) {
+        await getStorage();
+        await setStorage("options", deepMerge(defaultOptions, remoteData.options));
+      }
+      return true;
     },
 
     async testConnection(config) {
@@ -6722,8 +6723,10 @@ function processActions($cellDom, data) {
   thankArea.remove();
   const floorNum = $actions.find(".no").clone();
 
-  // ★ 回复行为与 V2EX 原版对齐：原版点击回复通过 a[onclick="replyOne('xxx')"] 已自动写入 @username
-  // 不再额外追加 `#${floor} `，保持与原版参数 content 一致（仅 @username，不带楼层号）
+  // 原站先写入 @用户名，再补上目标楼层，避免刷新后归到同用户的另一条回复。
+  $reply.off("click.v2p-reply-floor").on("click.v2p-reply-floor", () => {
+    insertTextToReplyInput(`#${data.floor} `);
+  });
 
   // ★ 移动端：点击某一楼（包括楼中楼）高亮这一楼的工具栏
   if (
@@ -9323,15 +9326,15 @@ runAfterLoaded(() => {
             <tbody>
               <tr>
                 <td width="120" align="right">WebDAV 地址</td>
-                <td><input type="text" class="sl" name="url" style="width: 300px;" value="${config.url || ""}" placeholder="http://192.168.1.100:5008/V2exPlus/"></td>
+                <td><input type="text" class="sl" name="url" style="width: 300px;" placeholder="http://192.168.1.100:5008/V2exPlus/"></td>
               </tr>
               <tr>
                 <td width="120" align="right">用户名</td>
-                <td><input type="text" class="sl" name="user" style="width: 300px;" value="${config.user || ""}"></td>
+                <td><input type="text" class="sl" name="user" style="width: 300px;"></td>
               </tr>
               <tr>
                 <td width="120" align="right">应用密码/Token</td>
-                <td><input type="password" class="sl" name="password" style="width: 300px;" value="${config.password || ""}"></td>
+                <td><input type="password" class="sl" name="password" style="width: 300px;"></td>
               </tr>
               <tr>
                 <td width="120" align="right"></td>
@@ -9349,10 +9352,14 @@ runAfterLoaded(() => {
           <input type="button" class="super normal button" id="v2p-push-sync" value="推送当前配置到云端">
           <input type="button" class="super normal button" id="v2p-pull-sync" value="从云端拉取配置到本地">
           <div class="sep10"></div>
-          <span class="fade">手动推送会将当前设备的主题、导航等配置覆盖云端；拉取则相反。</span>
+          <span class="fade">手动推送会将当前设备的主题、导航与阅读选项覆盖云端；拉取则相反。</span>
         </div>
       </div>
     `;
+    for (const name of ["url", "user", "password"]) {
+      settingsContent.querySelector(`input[name="${name}"]`).value =
+        config[name] || "";
+    }
     navCell.insertAdjacentElement("afterend", settingsContent);
     renderOptionSettings(
       $(settingsContent.querySelector("#v2p-settings-options")),
