@@ -2731,7 +2731,19 @@ async function thankReply(params) {
   }
 }
 async function crawlTopicPage(path, page = "1") {
-  const res = await fetch(`${V2EX_ORIGIN}${path}?p=${page}`);
+  const url = new URL(`${V2EX_ORIGIN}${path}`);
+  url.searchParams.set("p", page);
+  const res = await fetch(url.href);
+  if (!res.ok) {
+    throw new Error(`回复分页请求失败（HTTP ${res.status}）`);
+  }
+  const finalUrl = new URL(res.url || url.href);
+  if (
+    finalUrl.origin !== url.origin ||
+    finalUrl.pathname.replace(/\/+$/, "") !== url.pathname.replace(/\/+$/, "")
+  ) {
+    throw new Error("回复分页被重定向到其他页面");
+  }
   const htmlText = await res.text();
   return htmlText;
 }
@@ -3115,26 +3127,28 @@ function processReplyContent($cellDom) {
 // 与 PC 端共用 V2EX 记事本中的 `--用户标签--` 条目；未登录 / 同步失败时退回本机存储。
 // 数据结构：{ [memberName]: ["tag1", "tag2"] }
 const MEMBER_TAGS_STORAGE_KEY = "v2p_tags";
+const MEMBER_TAGS_PENDING_KEY = "v2p_tags_pending";
 const MEMBER_TAGS_NOTE_PREFIX = "--用户标签--";
 var memberTags = {};
+var memberTagsPending = {};
 var memberTagsNoteId = null;
 var memberTagsSync = null;
 var memberTagsInitialized = false;
 var memberTagModal = null;
 var memberTagModalName = "";
 
-function readLocalMemberTags() {
+function readLocalMemberTagData(key) {
   let raw = null;
   try {
     if (typeof GM_getValue === "function") {
-      raw = GM_getValue(MEMBER_TAGS_STORAGE_KEY);
+      raw = GM_getValue(key);
     }
   } catch {
     raw = null;
   }
   if (raw == null) {
     try {
-      raw = localStorage.getItem(MEMBER_TAGS_STORAGE_KEY);
+      raw = localStorage.getItem(key);
     } catch {
       raw = null;
     }
@@ -3148,23 +3162,29 @@ function readLocalMemberTags() {
       return {};
     }
   }
-  return normalizeMemberTags(parsed);
+  return isObject(parsed) ? parsed : {};
 }
-function writeLocalMemberTags(tags) {
+function readLocalMemberTags() {
+  return normalizeMemberTags(readLocalMemberTagData(MEMBER_TAGS_STORAGE_KEY));
+}
+function writeLocalMemberTagData(key, tags) {
   const raw = JSON.stringify(tags);
   try {
     if (typeof GM_setValue === "function") {
-      GM_setValue(MEMBER_TAGS_STORAGE_KEY, raw);
+      GM_setValue(key, raw);
       return;
     }
   } catch {
     // GM 存储不可用时退回 localStorage
   }
   try {
-    localStorage.setItem(MEMBER_TAGS_STORAGE_KEY, raw);
+    localStorage.setItem(key, raw);
   } catch {
     // 隐私模式下 localStorage 可能不可用，忽略即可
   }
+}
+function writeLocalMemberTags(tags) {
+  writeLocalMemberTagData(MEMBER_TAGS_STORAGE_KEY, tags);
 }
 function normalizeMemberTags(value) {
   if (!isObject(value)) return {};
@@ -3242,7 +3262,14 @@ async function syncMemberTagsFromNotes() {
     const $editor = $editDoc.find(".note_editor").first();
     const noteText = $editor.text() || $editor.val() || "";
     const remoteTags = parseMemberTagsNoteText(noteText);
+    if (!remoteTags) throw new Error("远端用户标签格式异常");
     if (remoteTags) {
+      // 未同步的本机修改优先，空数组表示删除，避免恢复网络后被旧远端覆盖。
+      Object.entries(memberTagsPending).forEach(([name, tags]) => {
+        if (!Array.isArray(tags)) return;
+        if (tags.length > 0) remoteTags[name] = tags;
+        else delete remoteTags[name];
+      });
       memberTags = remoteTags;
       writeLocalMemberTags(memberTags);
       updateMemberTag();
@@ -3270,7 +3297,9 @@ async function createMemberTagsNote() {
   memberTagsNoteId = getMemberTagNoteIdFromHref(res.url);
   return !!memberTagsNoteId;
 }
-async function persistMemberTags() {
+async function persistMemberTags(name) {
+  if (name) memberTagsPending[name] = [...getMemberTags(name)];
+  writeLocalMemberTagData(MEMBER_TAGS_PENDING_KEY, memberTagsPending);
   writeLocalMemberTags(memberTags);
   if (!isV2exLoggedIn()) {
     createToast({
@@ -3279,15 +3308,18 @@ async function persistMemberTags() {
     });
     return;
   }
-  await ensureMemberTagsSynced();
   try {
+    if (!(await ensureMemberTagsSynced())) {
+      throw new Error("尚未确认远端标签状态，请刷新后重试");
+    }
     if (!memberTagsNoteId && !(await createMemberTagsNote())) {
       throw new Error("创建记事本条目失败");
     }
     const data = new FormData();
+    const savedTags = normalizeMemberTags(memberTags);
     data.append(
       "content",
-      MEMBER_TAGS_NOTE_PREFIX + JSON.stringify(normalizeMemberTags(memberTags)),
+      MEMBER_TAGS_NOTE_PREFIX + JSON.stringify(savedTags),
     );
     data.append("syntax", "0");
     const res = await fetch(
@@ -3297,6 +3329,15 @@ async function persistMemberTags() {
     if (!res.redirected || res.status !== 200) {
       throw new Error("写入记事本条目失败");
     }
+    Object.keys(memberTagsPending).forEach((memberName) => {
+      if (
+        JSON.stringify(memberTagsPending[memberName]) ===
+        JSON.stringify(savedTags[memberName] || [])
+      ) {
+        delete memberTagsPending[memberName];
+      }
+    });
+    writeLocalMemberTagData(MEMBER_TAGS_PENDING_KEY, memberTagsPending);
     createToast({ message: "标签已保存", type: "success" });
   } catch (err) {
     console.warn("[V2EX Pro] 保存用户标签失败：", err);
@@ -3416,7 +3457,7 @@ async function addMemberTag(name, tag) {
   }
   memberTags[name] = [...tags, tag];
   updateMemberTag();
-  await persistMemberTags();
+  await persistMemberTags(name);
   return true;
 }
 async function removeMemberTag(name, tag) {
@@ -3428,7 +3469,7 @@ async function removeMemberTag(name, tag) {
     delete memberTags[name];
   }
   updateMemberTag();
-  await persistMemberTags();
+  await persistMemberTags(name);
 }
 function createMemberTagModal() {
   return createModal({
@@ -3495,10 +3536,16 @@ function initMemberTags() {
   if (memberTagsInitialized) return;
   memberTagsInitialized = true;
   memberTags = readLocalMemberTags();
+  memberTagsPending = readLocalMemberTagData(MEMBER_TAGS_PENDING_KEY);
   bindMemberTagEvents();
   updateMemberTag();
   // 本机标签先渲染，远端记事本在后台同步；完成后会自动重绘
   memberTagsSync = syncMemberTagsFromNotes();
+  void memberTagsSync.then((synced) => {
+    if (synced && Object.keys(memberTagsPending).length > 0) {
+      return persistMemberTags();
+    }
+  });
 }
 
 function handleTopicImg() {
@@ -3603,7 +3650,7 @@ function getCommentDataList({
       const likes = Number(getLikeSpan($td).text().trim()) || 0;
       const floor = $td.find("span.no").text();
       const memberNameMatches = Array.from(
-        content.matchAll(/@([a-zA-Z0-9]+)/g),
+        content.matchAll(/@([a-zA-Z0-9_]+)/g),
       );
       const refMemberNames =
         memberNameMatches.length > 0
@@ -6410,6 +6457,9 @@ async function collectTopicReplies({ options, commentDataList }) {
         const bodyMatch = htmlText.match(/<body[^>]*>([\s\S]+?)<\/body>/i);
         const $body = $(bodyMatch ? bodyMatch[0] : htmlText);
         const $cells = $body.find('.cell[id^="r_"]');
+        if ($cells.length === 0) {
+          throw new Error("回复分页缺少回复内容，可能需要重新登录");
+        }
         const pageData = getCommentDataList({
           options,
           $commentTableRows: $cells.find("> table > tbody > tr"),

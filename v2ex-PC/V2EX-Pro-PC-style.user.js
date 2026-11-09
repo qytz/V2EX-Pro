@@ -60,7 +60,12 @@ if (typeof GM_addStyle === "undefined") {
   };
 
   // 读取用户上次的设置；未设置时默认使用水色 (aqua)
-  var currentMode = localStorage.getItem(STORAGE_KEY) || "aqua";
+  var currentMode = "aqua";
+  try {
+    currentMode = localStorage.getItem(STORAGE_KEY) || "aqua";
+  } catch (err) {
+    console.warn("[V2EX Pro] 读取主题偏好失败，使用默认主题", err);
+  }
   var effectiveMode = currentMode;
   if (currentMode === "auto") {
     effectiveMode =
@@ -96,7 +101,12 @@ if (typeof GM_addStyle === "undefined") {
   };
 
   var getResolvedMode = function () {
-    var mode = localStorage.getItem(STORAGE_KEY) || "aqua";
+    var mode = currentMode;
+    try {
+      mode = localStorage.getItem(STORAGE_KEY) || "aqua";
+    } catch (err) {
+      // 存储不可用时沿用本页主题
+    }
     if (mode === "auto") {
       mode =
         window.matchMedia &&

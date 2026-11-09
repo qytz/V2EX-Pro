@@ -76,7 +76,12 @@ if (typeof GM_addStyle === "undefined") {
   }
 
   // 2. 读取用户上次的设置；未设置时默认使用水色 (aqua)
-  let currentMode = localStorage.getItem(STORAGE_KEY) || "aqua";
+  let currentMode = "aqua";
+  try {
+    currentMode = localStorage.getItem(STORAGE_KEY) || "aqua";
+  } catch (err) {
+    console.warn("[V2EX Pro] 读取主题偏好失败，使用默认主题", err);
+  }
 
   // [Fast Path] 1. 立即注入主题类 & 关键 CSS (背景色 + 隐藏 body)
   // 统一各主题背景色
@@ -125,7 +130,12 @@ if (typeof GM_addStyle === "undefined") {
   };
 
   const getResolvedMode = () => {
-    let mode = localStorage.getItem(STORAGE_KEY) || "auto";
+    let mode = currentMode;
+    try {
+      mode = localStorage.getItem(STORAGE_KEY) || "aqua";
+    } catch (err) {
+      // 存储不可用时沿用本页主题
+    }
     if (mode === "auto") {
       mode =
         window.matchMedia &&
@@ -5261,7 +5271,12 @@ a:focus-visible, button:focus-visible, input:focus-visible,
   function getSavedMode() {
     if (currentMode && THEME_MODES.includes(currentMode)) return currentMode;
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw = null;
+    try {
+      raw = localStorage.getItem(STORAGE_KEY);
+    } catch (err) {
+      // 存储不可用时使用默认主题
+    }
     if (THEME_MODES.includes(raw)) {
       currentMode = raw;
       return raw;
@@ -5591,7 +5606,11 @@ a:focus-visible, button:focus-visible, input:focus-visible,
           const next = item.dataset.key;
 
           currentMode = next;
-          localStorage.setItem(STORAGE_KEY, next);
+          try {
+            localStorage.setItem(STORAGE_KEY, next);
+          } catch (err) {
+            console.warn("[V2EX Pro] 保存主题偏好失败，主题仅在本页生效", err);
+          }
           syncNativeNight(next);
 
           let dark = false;
@@ -5828,7 +5847,12 @@ a:focus-visible, button:focus-visible, input:focus-visible,
 
     // 恢复滚动位置或居中当前 tab
     const restoreOrCenter = () => {
-      const saved = localStorage.getItem(fullKey);
+      let saved = null;
+      try {
+        saved = localStorage.getItem(fullKey);
+      } catch (err) {
+        // 无法读取时仍将当前 tab 居中
+      }
 
       if (saved != null) {
         const val = Number(saved);
@@ -5865,7 +5889,11 @@ a:focus-visible, button:focus-visible, input:focus-visible,
 
         (window.requestAnimationFrame || setTimeout)(() => {
           ticking = false;
-          localStorage.setItem(fullKey, String(tabs.scrollLeft));
+          try {
+            localStorage.setItem(fullKey, String(tabs.scrollLeft));
+          } catch (err) {
+            // 保存滚动位置失败不影响导航
+          }
         }, 16);
       },
       { passive: true },

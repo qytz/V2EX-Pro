@@ -489,11 +489,17 @@
       });
       let minCount = (window.config && window.config.topReplyLoveMinCount) || 3;
       let maxTopCount = (window.config && window.config.topReplyCount) || 5;
+      const topReplyFloors = Array.isArray(post.topReplyFloors)
+        ? new Set(post.topReplyFloors)
+        : null;
 
       // 优化1：性能提升，不进行全局 JSON.parse 深拷贝，直接过滤满足门槛且有质量的回复
       let candidates = replyList
         .filter(
-          (v) => v.thankCount >= minCount && this.isQualityReply(v, minCount),
+          (v) =>
+            (!topReplyFloors || topReplyFloors.has(v.floor)) &&
+            v.thankCount >= minCount &&
+            this.isQualityReply(v, minCount),
         )
         .map((v) => ({ ...v }));
 
@@ -1024,23 +1030,29 @@
     },
     //从本地读取配置
     initConfig() {
-      let configStr = localStorage.getItem("v2ex-config");
       let configMap = {};
-      let configObj = {};
       let userName = window.user.username || "default";
-      if (configStr) {
-        try {
-          configMap = JSON.parse(configStr);
-          configObj = configMap[userName];
+      try {
+        let configStr = localStorage.getItem("v2ex-config");
+        if (configStr) {
+          const parsed = JSON.parse(configStr);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            configMap = parsed;
+          }
+          const configObj = configMap[userName];
           if (configObj) {
             window.config = functions.deepAssign(window.config, configObj);
           }
-        } catch (e2) {
-          console.warn("[V2EX Pro] 解析本地配置失败，重置为默认配置", e2);
         }
+      } catch (e2) {
+        console.warn("[V2EX Pro] 读取本地配置失败，使用当前配置", e2);
       }
       configMap[userName] = window.config;
-      localStorage.setItem("v2ex-config", JSON.stringify(configMap));
+      try {
+        localStorage.setItem("v2ex-config", JSON.stringify(configMap));
+      } catch (e2) {
+        console.warn("[V2EX Pro] 保存本地配置失败，配置仅在本页生效", e2);
+      }
     },
     deepAssign(...arg) {
       let name, options, src, copy;
@@ -1124,6 +1136,7 @@
     type: "post",
     once: "",
     replyCount: 0,
+    topReplyFloors: null,
     clickCount: 0,
     thankCount: 0,
     collectCount: 0,
@@ -4237,7 +4250,7 @@
         }
         this.$emit("update:show", false);
       },
-      exportCollectList() {
+      async exportCollectList() {
         if (!this.isLogin) {
           return eventBus.emit(CMD.SHOW_MSG, {
             type: "warning",
@@ -4245,65 +4258,65 @@
           });
         }
         try {
-          let run2 = function (i) {
-            return new Promise((resolve) => {
-              $.get(`/my/topics?p=${i}`).then((res) => {
-                let body = $(functions.genDomFromHtmlString(res));
-                let total = body.find(".page_normal").last().text();
-                if (typeof total === "string") {
-                  total = Number(total);
-                }
-                let list = [];
-                body.find(".topic-link").each(function () {
-                  let a = functions.parseA(this);
-                  list.push({
-                    title: a.title,
-                    url: location.origin + "/t/" + a.id,
-                  });
-                });
-                resolve({ list, total });
+          let run2 = async function (i) {
+            const res = await $.get(`/my/topics?p=${i}`);
+            let body = $(functions.genDomFromHtmlString(res));
+            let total = body.find(".page_normal").last().text();
+            if (typeof total === "string") {
+              total = Number(total);
+            }
+            let list = [];
+            body.find(".topic-link").each(function () {
+              let a = functions.parseA(this);
+              list.push({
+                title: a.title,
+                url: location.origin + "/t/" + a.id,
               });
             });
+            return { list, total };
           };
           let allList = [];
           this.exportLoading = true;
-          run2(1).then(async (r2) => {
-            allList = allList.concat(r2.list);
-            if (r2.total > 1) {
-              let getList = [];
-              for (let i = 2; i <= r2.total; i++) {
-                getList.push(run2(i));
-              }
-              let b = await Promise.allSettled(getList);
-              allList = allList.concat(
-                b
-                  .filter(
-                    (v) => v.status === "fulfilled" && v.value && v.value.list,
-                  )
-                  .map((v) => v.value.list)
-                  .flat(),
-              );
+          const r2 = await run2(1);
+          allList = allList.concat(r2.list);
+          if (r2.total > 1) {
+            let getList = [];
+            for (let i = 2; i <= r2.total; i++) {
+              getList.push(run2(i));
             }
-            let pom = document.createElement("a");
-            pom.setAttribute(
-              "href",
-              "data:text/plain;charset=utf-8," +
-                encodeURIComponent(JSON.stringify(allList, null, 2)),
+            let b = await Promise.allSettled(getList);
+            if (b.some((result) => result.status === "rejected")) {
+              throw new Error("部分收藏分页读取失败");
+            }
+            allList = allList.concat(
+              b
+                .filter(
+                  (v) => v.status === "fulfilled" && v.value && v.value.list,
+                )
+                .map((v) => v.value.list)
+                .flat(),
             );
-            pom.setAttribute("download", "V2EX-收藏.json");
-            pom.click();
-            this.exportLoading = false;
-            eventBus.emit(CMD.SHOW_MSG, {
-              type: "success",
-              text: "收藏列表导出成功！",
-            });
+          }
+          let pom = document.createElement("a");
+          pom.setAttribute(
+            "href",
+            "data:text/plain;charset=utf-8," +
+              encodeURIComponent(JSON.stringify(allList, null, 2)),
+          );
+          pom.setAttribute("download", "V2EX-收藏.json");
+          pom.click();
+          eventBus.emit(CMD.SHOW_MSG, {
+            type: "success",
+            text: "收藏列表导出成功！",
           });
         } catch (e2) {
-          this.exportLoading = false;
+          console.warn("[V2EX Pro] 收藏列表导出失败：", e2);
           eventBus.emit(CMD.SHOW_MSG, {
             type: "error",
             text: "收藏列表导出失败！",
           });
+        } finally {
+          this.exportLoading = false;
         }
       },
       importCollectList(e2) {
@@ -5336,7 +5349,7 @@
                                   vue.createElementVNode(
                                     "label",
                                     { class: "item-title" },
-                                    "高赞统计最多抓取页数",
+                                    "高赞统计最多采样页数",
                                     -1,
                                   ),
                                   vue.createElementVNode(
@@ -13181,7 +13194,7 @@
             functions.createList(post, replyList);
             return post;
           } else {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
               repliesMap.push({
                 i: pageNo,
                 replyList: this.parsePageReplies(
@@ -13202,9 +13215,13 @@
               const pageCount = pageNumbers.length
                 ? Math.max(pageNo, ...pageNumbers)
                 : pageNo;
+              const allPages = Array.from(
+                { length: pageCount },
+                (_, index) => index + 1,
+              ).filter((page) => page !== pageNo);
               const maxPages = getTopReplyMaxPages();
               const selection = selectTopReplyPages(
-                pageNumbers,
+                allPages,
                 pageNo,
                 maxPages,
               );
@@ -13216,23 +13233,33 @@
               );
               const finish = (pageResults) => {
                 pageResults.forEach((v) => repliesMap.push(v));
+                const sampledPages = new Set([pageNo, ...selection.fetchPages]);
+                post.topReplyFloors = repliesMap
+                  .filter((page) => sampledPages.has(page.i))
+                  .flatMap((page) => page.replyList.map((reply) => reply.floor));
                 let replyList = functions.getAllReply(repliesMap);
                 functions.createList(post, replyList);
                 resolve(post);
               };
               // 短期缓存命中：当前页仍从 DOM 解析，只跳过其它分页的请求
               const cached = readTopReplyCache(cacheKey);
-              if (cached) {
+              // 旧缓存可能只包含抽样页，不能作为完整回复列表使用。
+              if (
+                cached &&
+                allPages.every((page) =>
+                  cached.pages.some((item) => item.i === page),
+                )
+              ) {
                 finish(cached.pages);
                 return;
               }
-              if (!selection.fetchPages.length) {
+              if (!allPages.length) {
                 finish([]);
                 return;
               }
               let url2 = location.origin + "/t/" + post.id;
               runWithConcurrency(
-                selection.fetchPages,
+                allPages,
                 TOP_REPLY_FETCH_CONCURRENCY,
                 (currentPageNo) =>
                   this.fetchPostOtherPageReplies(
@@ -13248,17 +13275,18 @@
                       !result.value.failed,
                   )
                   .map((result) => result.value);
+                if (fulfilled.length !== allPages.length) {
+                  throw new Error("部分回复分页读取失败，请稍后重试");
+                }
                 finish(fulfilled);
                 // 有分页失败时结果不完整，不写入缓存，下次打开可以重试
-                if (fulfilled.length === selection.fetchPages.length) {
-                  writeTopReplyCache(cacheKey, {
-                    pages: fulfilled,
-                    totalPageCount: selection.totalPageCount,
-                    fetchedPageCount: fulfilled.length + 1,
-                    truncated: selection.truncated,
-                  });
-                }
-              });
+                writeTopReplyCache(cacheKey, {
+                  pages: fulfilled,
+                  totalPageCount: selection.totalPageCount,
+                  fetchedPageCount: fulfilled.length + 1,
+                  truncated: false,
+                });
+              }).catch(reject);
             });
           }
         }
@@ -13276,11 +13304,15 @@
               let box = findReplyBox(boxs);
               let cells = box ? box.querySelectorAll(".cell") : [];
               cells = Array.from(cells);
+              const replyList = this.parsePageReplies(
+                cells.slice(2, cells.length - 1),
+              );
+              if (replyList.length === 0) {
+                throw new Error("回复分页缺少回复内容，可能需要重新登录");
+              }
               resolve({
                 i: pageNo,
-                replyList: this.parsePageReplies(
-                  cells.slice(2, cells.length - 1),
-                ),
+                replyList,
               });
             })
             .catch((r2) => {
@@ -14979,29 +15011,29 @@
       applyTags(readLocalTags(), false);
     }
 
-    function getNoteItemContent(id, prefix) {
-      return new Promise((resolve, reject) => {
-        $.get(location.origin + "/notes/edit/" + id).then((r2) => {
-          let bodyText = r2.match(/<body[^>]*>([\s\S]+?)<\/body>/g);
-          let body = $(bodyText[0]);
-          let text = body.find(".note_editor").text();
-          if (text === prefix) {
-            resolve({});
-          } else {
-            let tagJson = text.substring(prefix.length);
-            try {
-              resolve(JSON.parse(tagJson));
-            } catch (e2) {
-              resolve({});
-            }
-          }
-        });
-      });
+    async function getNoteItemContent(id, prefix) {
+      const r2 = await $.get(location.origin + "/notes/edit/" + id);
+      let bodyText = r2.match(/<body[^>]*>([\s\S]+?)<\/body>/g);
+      let body = $(bodyText ? bodyText[0] : r2);
+      let editor = body.find(".note_editor");
+      let text = editor.text();
+      if (!editor.length || !text.startsWith(prefix)) {
+        throw new Error("记事本响应缺少预期内容");
+      }
+      if (text === prefix) {
+        return {};
+      }
+      return JSON.parse(text.substring(prefix.length));
     }
     async function initNoteData() {
-      $.get(location.origin + "/notes").then(async (r2) => {
+      try {
+        const r2 = await $.get(location.origin + "/notes");
         let bodyText = r2.match(/<body[^>]*>([\s\S]+?)<\/body>/g);
+        if (!bodyText) throw new Error("记事本列表响应格式异常");
         let body = $(bodyText[0]);
+        if (!body.find("#Main .box").length) {
+          throw new Error("记事本列表响应缺少内容区域");
+        }
         let items = body.find("#Main .box .note_item_title a");
         if (window.config.openTag) {
           let tagItems2 = Array.from(items).filter((v) =>
@@ -15051,9 +15083,12 @@
           let r22 = await window.parse.createNoteItem(window.user.configPrefix);
           r22 && (window.user.configNoteId = r22);
         }
+      } catch (err) {
+        console.warn("[V2EX Pro] 读取记事本失败，保留本机配置与标签：", err);
+      } finally {
         functions.cbChecker({ type: "syncData" });
         functions.cbChecker({ type: "getConfigSuccess" });
-      });
+      }
     }
     function addSettingText() {
       // 侧栏指向移动端脚本安装地址（DefaultVal.mobileScript）
@@ -17160,6 +17195,16 @@
             .getPostAllReplies(post, body, htmlText, window.pageData.pageNo)
             .then(async (res1) => {
               await functions.cbChecker({ type: "postReplies", value: res1 });
+            })
+            .catch((err) => {
+              console.warn("[V2EX Pro] 读取完整回复失败，恢复原页面：", err);
+              functions.cbChecker({ type: "restorePost" });
+              window.stopMe = true;
+              functions.cbChecker({ type: "syncData" });
+              functions.cbChecker({
+                type: "warningNotice",
+                value: "回复分页读取失败，已恢复原页面，请稍后重试",
+              });
             });
           break;
         case PageType.Member:
