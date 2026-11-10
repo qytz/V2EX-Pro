@@ -6,21 +6,21 @@
 // @description:zh-CN  V2EX Pro 移动端样式脚本：设计 Token、四主题（浅色/晨光/水色/深色）、防闪烁注入与响应式布局。须与「V2EX Pro - H5」主脚本一同启用。
 // @author       git710
 // @license      GPL-3.0
-// @homepageURL  https://github.com/git710/V2EX-Pro
-// @supportURL   https://github.com/git710/V2EX-Pro/issues
+// @homepageURL  https://github.com/qytz/V2EX-Pro
+// @supportURL   https://github.com/qytz/V2EX-Pro/issues
 // @icon         https://www.v2ex.com/static/img/v2ex-alt@2x.png
 // @match        https://v2ex.com/*
 // @match        https://*.v2ex.com/*
 // @match        https://global.v2ex.co/*
 // @run-at       document-start
 // @grant        none
-// @updateURL    https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5-style.user.js
-// @downloadURL  https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5-style.user.js
+// @updateURL    https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5-style.user.js
+// @downloadURL  https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5-style.user.js
 // ==/UserScript==
 
 /*
  * V2EX Pro - H5 style（移动端样式脚本）
- * 仓库：https://github.com/git710/V2EX-Pro
+ * 仓库：https://github.com/qytz/V2EX-Pro
  *
  * 衍生自 coolpace/V2EX_Polish 的移动端样式实现，遵循 GPL-3.0。
  * 完整许可证见仓库根目录 LICENSE。

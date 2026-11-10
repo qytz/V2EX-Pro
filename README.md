@@ -61,17 +61,17 @@ V2EX Pro 是一套运行在 Tampermonkey（或兼容管理器）里的用户脚�
 
 依次点击，**先样式、后主脚本**：
 
-1. [安装 PC 端样式脚本](https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC-style.user.js)
-2. [安装 PC 端主脚本](https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC.user.js)
+1. [安装 PC 端样式脚本](./v2ex-PC/V2EX-Pro-PC-style.user.js?raw=1)
+2. [安装 PC 端主脚本](./v2ex-PC/V2EX-Pro-PC.user.js?raw=1)
 
 ### 手机端安装
 
 同样**先样式、后主脚本**：
 
-1. [安装手机端样式脚本](https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5-style.user.js)
-2. [安装手机端主脚本](https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5.user.js)
+1. [安装手机端样式脚本](./v2ex-H5/V2EX-Pro-H5-style.user.js?raw=1)
+2. [安装手机端主脚本](./v2ex-H5/V2EX-Pro-H5.user.js?raw=1)
 
-安装完成后打开或刷新 [V2EX](https://www.v2ex.com/)。若点击链接只显示源码文本，请在脚本管理器里「新建脚本」，把内容整段粘贴进去再保存。
+安装链接使用相对路径并带 `?raw=1`，在 GitHub 上会打开当前仓库、当前分支的原始脚本。安装完成后打开或刷新 [V2EX](https://www.v2ex.com/)。若点击链接只显示源码文本，请在脚本管理器里「新建脚本」，把内容整段粘贴进去再保存。
 
 ### 镜像站
 
@@ -87,10 +87,10 @@ V2EX Pro 是一套运行在 Tampermonkey（或兼容管理器）里的用户脚�
 四个脚本都声明了 `@updateURL` 与 `@downloadURL`，指向本仓库 `main` 分支的对应文件：
 
 ```
-https://raw.githubusercontent.com/git710/V2EX-Pro/main/<目录>/<文件名>.user.js
+https://raw.githubusercontent.com/qytz/V2EX-Pro/main/<目录>/<文件名>.user.js
 ```
 
-在 Tampermonkey 的「设置 → 通用设置」中开启定期检查更新，发布新版本后即可自动升级。
+在 Tampermonkey 的「设置 → 通用设置」中开启定期检查更新，发布新版本后即可自动升级。脚本里的更新地址使用绝对 URL，安装到脚本管理器后仍可定位到本仓库；历史 `@namespace` 保持不变，继续识别为原有脚本。此前从 `git710/V2EX-Pro` 安装的用户，请从上方链接重新安装同名脚本，以切换到本仓库的更新地址。
 
 ### 常用入口
 
@@ -217,7 +217,7 @@ node bump-version.mjs --dry-run
 
 | 渠道        | 地址                                                  | 说明                     |
 | ----------- | ----------------------------------------------------- | ------------------------ |
-| GitHub      | [git710/V2EX-Pro](https://github.com/git710/V2EX-Pro) | 源码、Issue 与更新主入口 |
+| GitHub      | [qytz/V2EX-Pro](https://github.com/qytz/V2EX-Pro) | 源码、Issue 与更新主入口 |
 | Greasy Fork | 准备中                                                | 上架后可搜索、一键安装   |
 
 ## 致谢
@@ -238,7 +238,7 @@ node bump-version.mjs --dry-run
 
 ## 反馈
 
-遇到问题请提 [Issue](https://github.com/git710/V2EX-Pro/issues)。反馈时建议附上：
+遇到问题请提 [Issue](https://github.com/qytz/V2EX-Pro/issues)。反馈时建议附上：
 
 - 使用的脚本与版本号（油猴面板可见）
 - 浏览器与操作系统

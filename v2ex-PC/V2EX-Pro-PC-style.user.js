@@ -6,21 +6,21 @@
 // @description:zh-CN  V2EX Pro PC 端样式脚本：统一设计 Token、四主题（浅色/晨光/水色/深色）、防闪烁背景与主题类注入。须先于「V2EX Pro - PC」主脚本启用。
 // @author       git710
 // @license      GPL-3.0
-// @homepageURL  https://github.com/git710/V2EX-Pro
-// @supportURL   https://github.com/git710/V2EX-Pro/issues
+// @homepageURL  https://github.com/qytz/V2EX-Pro
+// @supportURL   https://github.com/qytz/V2EX-Pro/issues
 // @icon         https://www.v2ex.com/static/img/v2ex-alt@2x.png
 // @match        https://v2ex.com/*
 // @match        https://*.v2ex.com/*
 // @match        https://global.v2ex.co/*
 // @run-at       document-start
 // @grant        none
-// @updateURL    https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC-style.user.js
-// @downloadURL  https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC-style.user.js
+// @updateURL    https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC-style.user.js
+// @downloadURL  https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC-style.user.js
 // ==/UserScript==
 
 /*
  * V2EX Pro - PC style（PC 端样式脚本）
- * 仓库：https://github.com/git710/V2EX-Pro
+ * 仓库：https://github.com/qytz/V2EX-Pro
  *
  * 衍生自 zyronon/V2Next 的 PC 端样式实现，遵循 GPL-3.0。
  * 感谢原作者 zyronon，以及 coolpace/V2EX_Polish、guozhigq/flutter_v2ex。

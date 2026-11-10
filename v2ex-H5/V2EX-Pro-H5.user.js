@@ -6,8 +6,8 @@
 // @description:zh-CN  V2EX 网页增强脚本（移动端 H5）：四套主题、回复定位与预览、楼层直达、用户标签、高赞回复、楼中楼优化、表情回复、整页 Base64 解析、节点导航自定义、WebDAV 配置同步、自动签到。须与「V2EX Pro - H5 style」样式脚本一同启用。
 // @author       git710
 // @license      GPL-3.0
-// @homepageURL  https://github.com/git710/V2EX-Pro
-// @supportURL   https://github.com/git710/V2EX-Pro/issues
+// @homepageURL  https://github.com/qytz/V2EX-Pro
+// @supportURL   https://github.com/qytz/V2EX-Pro/issues
 // @icon         https://www.v2ex.com/static/img/v2ex-alt@2x.png
 // @match        https://v2ex.com/*
 // @match        https://*.v2ex.com/*
@@ -18,13 +18,13 @@
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
 // @connect      *
-// @updateURL    https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5.user.js
-// @downloadURL  https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5.user.js
+// @updateURL    https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5.user.js
+// @downloadURL  https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5.user.js
 // ==/UserScript==
 
 /*
  * V2EX Pro - H5（移动端主脚本）
- * 仓库：https://github.com/git710/V2EX-Pro
+ * 仓库：https://github.com/qytz/V2EX-Pro
  *
  * 衍生自 coolpace/V2EX_Polish 的移动端样式实现，遵循 GPL-3.0。
  * 完整许可证见仓库根目录 LICENSE。

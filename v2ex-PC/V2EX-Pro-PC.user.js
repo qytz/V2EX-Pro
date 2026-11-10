@@ -6,8 +6,8 @@
 // @description:zh-CN  V2EX 网页增强脚本（PC 端）：楼中楼与嵌套回复、弹框查看主题、回复定位与上下文、高赞回复、用户标签、成员悬浮卡、表情回复、Base64 工具箱、顶部导航自定义、自动签到、钉钉通知。须与「V2EX Pro - PC style」样式脚本一同启用。
 // @author       git710
 // @license      GPL-3.0
-// @homepageURL  https://github.com/git710/V2EX-Pro
-// @supportURL   https://github.com/git710/V2EX-Pro/issues
+// @homepageURL  https://github.com/qytz/V2EX-Pro
+// @supportURL   https://github.com/qytz/V2EX-Pro/issues
 // @icon         https://www.v2ex.com/static/img/v2ex-alt@2x.png
 // @match        https://v2ex.com/*
 // @match        https://*.v2ex.com/*
@@ -23,13 +23,13 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @connect      oapi.dingtalk.com
-// @updateURL    https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC.user.js
-// @downloadURL  https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC.user.js
+// @updateURL    https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC.user.js
+// @downloadURL  https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC.user.js
 // ==/UserScript==
 
 /*
  * V2EX Pro - PC（PC 端主脚本）
- * 仓库：https://github.com/git710/V2EX-Pro
+ * 仓库：https://github.com/qytz/V2EX-Pro
  *
  * 衍生自 zyronon/V2Next 的 PC 端实现，遵循 GPL-3.0。
  * 感谢原作者 zyronon，以及 coolpace/V2EX_Polish、guozhigq/flutter_v2ex。
@@ -1173,15 +1173,15 @@
     cb: null,
     // 仓库 / 反馈 / 更新日志 / 安装地址等外链
     // 修改仓库名或分支时，只需同步这 7 行（与脚本头 @updateURL/@downloadURL 保持一致）
-    git: "https://github.com/git710/V2EX-Pro",
-    shortGit: "https://github.com/git710/V2EX-Pro",
-    issue: "https://github.com/git710/V2EX-Pro/issues",
-    pcLog: "https://github.com/git710/V2EX-Pro/releases",
+    git: "https://github.com/qytz/V2EX-Pro",
+    shortGit: "https://github.com/qytz/V2EX-Pro",
+    issue: "https://github.com/qytz/V2EX-Pro/issues",
+    pcLog: "https://github.com/qytz/V2EX-Pro/releases",
     pcScript:
-      "https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC.user.js",
+      "https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-PC/V2EX-Pro-PC.user.js",
     mobileScript:
-      "https://raw.githubusercontent.com/git710/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5.user.js",
-    homeUrl: "https://github.com/git710/V2EX-Pro#readme",
+      "https://raw.githubusercontent.com/qytz/V2EX-Pro/main/v2ex-H5/V2EX-Pro-H5.user.js",
+    homeUrl: "https://github.com/qytz/V2EX-Pro#readme",
     // 第三方服务（非本仓库提供）：热门主题跳转 & imgur 图片代理。
     // 二者均沿用上游配置，自建部署时建议替换为自有服务；热门跳转失败会回退到 git 地址。
     hotUrl: "https://v2hotlist.vercel.app/hot/",
