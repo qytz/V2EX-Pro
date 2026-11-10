@@ -4103,6 +4103,65 @@ a.v2p-topic-preview-title-link:hover {
 .v2p-top-reply-meta a {
     text-decoration: none;
 }
+/* 高赞导读与原楼层之间的双向定位 */
+.v2p-top-reply-header {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.v2p-top-reply-floor,
+.v2p-top-reply-content {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    text-shadow: none;
+    cursor: pointer;
+}
+.v2p-top-reply-floor { color: var(--v2p-color-accent-500); }
+.v2p-top-reply-content {
+    width: 100%;
+    color: var(--v2p-color-font-secondary);
+    white-space: normal;
+    -webkit-line-clamp: 2;
+}
+.v2p-top-reply-badge {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 4px;
+    padding: 1px 6px;
+    border: 1px solid var(--v2p-color-border);
+    border-radius: 6px;
+    background: var(--v2p-color-bg-block);
+    color: var(--v2p-color-accent-500);
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.v2p-top-reply-badge:focus-visible,
+.v2p-top-reply-content:focus-visible,
+.v2p-top-reply-floor:focus-visible,
+.v2p-top-reply-header:focus-visible {
+    outline: 2px solid var(--v2p-color-accent-500);
+    outline-offset: 2px;
+}
+.v2p-reply-navigation-flash {
+    outline: 2px solid var(--v2p-color-accent-500);
+    outline-offset: 2px;
+    animation: v2p-reply-navigation-flash 1.8s ease-in-out;
+}
+@keyframes v2p-reply-navigation-flash {
+    30%, 60% { box-shadow: 0 0 0 4px var(--v2p-color-bg-block); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .v2p-reply-navigation-flash { animation: none; }
+}
 .v2p-em#Top>.content {
     display: flex;
     justify-content: space-between;

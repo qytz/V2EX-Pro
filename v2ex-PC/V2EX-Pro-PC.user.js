@@ -2,8 +2,8 @@
 // @name         V2EX Pro - PC
 // @namespace    https://github.com/git710/V2EX-Pro
 // @version      1.0.6
-// @description  V2EX 网页增强脚本（PC 端）：楼中楼与嵌套回复、弹框查看主题、回复定位与上下文、高赞回复、用户标签、成员悬浮卡、表情回复、Base64 工具箱、顶部导航自定义、自动签到、钉钉通知。须与「V2EX Pro - PC style」样式脚本一同启用。
-// @description:zh-CN  V2EX 网页增强脚本（PC 端）：楼中楼与嵌套回复、弹框查看主题、回复定位与上下文、高赞回复、用户标签、成员悬浮卡、表情回复、Base64 工具箱、顶部导航自定义、自动签到、钉钉通知。须与「V2EX Pro - PC style」样式脚本一同启用。
+// @description  V2EX 网页增强脚本（PC 端）：楼中楼与嵌套回复、弹框查看主题、回复定位与上下文、高赞导读与双向定位、用户标签、成员悬浮卡、表情回复、Base64 工具箱、顶部导航自定义、自动签到、钉钉通知。须与「V2EX Pro - PC style」样式脚本一同启用。
+// @description:zh-CN  V2EX 网页增强脚本（PC 端）：楼中楼与嵌套回复、弹框查看主题、回复定位与上下文、高赞导读与双向定位、用户标签、成员悬浮卡、表情回复、Base64 工具箱、顶部导航自定义、自动签到、钉钉通知。须与「V2EX Pro - PC style」样式脚本一同启用。
 // @author       git710
 // @license      GPL-3.0
 // @homepageURL  https://github.com/qytz/V2EX-Pro
@@ -409,6 +409,32 @@
   }
 
   const functions = {
+    getTopReplySummary(item) {
+      const template = document.createElement("template");
+      template.innerHTML = item.reply_content || "";
+      const text = String(item.reply_text || template.content.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const imageHint = template.content.querySelector("img") ? " [含图片]" : "";
+      return (text.slice(0, 180) + (text.length > 180 ? "…" : "") + imageHint).trim() || "点击查看原回复";
+    },
+    containsReplyFloor(item, floor) {
+      return Number(item.floor) === Number(floor) ||
+        (item.children || []).some((child) => this.containsReplyFloor(child, floor));
+    },
+    highlightReplyTarget(target) {
+      if (!target) return;
+      const reducedMotion = window.matchMedia &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
+      clearTimeout(target.__v2pReplyFlashTimer);
+      target.classList.remove("v2p-reply-navigation-flash");
+      void target.offsetWidth;
+      target.classList.add("v2p-reply-navigation-flash");
+      target.__v2pReplyFlashTimer = setTimeout(() => {
+        target.classList.remove("v2p-reply-navigation-flash");
+      }, 1800);
+    },
     async refreshOnce(once) {
       return new Promise((resolve) => {
         if (once) {
@@ -6160,7 +6186,7 @@
   const _sfc_main$d = {
     name: "Author",
     components: { PopConfirm, Point, Icon },
-    inject: ["isLogin", "tags", "config", "isNight"],
+    inject: ["isLogin", "tags", "config", "isNight", "post", "jumpToTopReply"],
     props: {
       modelValue: false,
       comment: {
@@ -6193,8 +6219,25 @@
       context() {
         return this.comment.replyUsers.length;
       },
+      isTopReply() {
+        return this.type !== "top" && this.config.showTopReply &&
+          this.post.topReplyList.some((item) => String(item.id) === String(this.comment.id));
+      },
     },
     methods: {
+      renderTopReplyBadge() {
+        if (!this.isTopReply) return vue.createCommentVNode("", true);
+        vue.openBlock();
+        return vue.createElementBlock("button", {
+          type: "button",
+          class: "v2p-top-reply-badge",
+          title: "返回高赞导读中的这条回复",
+          onClick: (event) => {
+            event.stopPropagation();
+            this.jumpToTopReply(this.comment.floor);
+          },
+        }, "高赞 ↑", 8, ["onClick"]);
+      },
       jump() {
         eventBus.emit(CMD.JUMP, this.comment.floor);
       },
@@ -6353,6 +6396,7 @@
                 vue.toDisplayString($props.comment.date),
                 1,
               ),
+              $options.renderTopReplyBadge(),
               $options.config.openTag
                 ? (vue.openBlock(),
                   vue.createElementBlock(
@@ -7725,7 +7769,7 @@
       Icon,
       TopSubComment,
     },
-    inject: ["post", "postDetailWidth", "show", "isNight", "config"],
+    inject: ["post", "postDetailWidth", "show", "isNight", "config", "replyNavigationFloor"],
     props: {
       modelValue: {
         reply_content: "",
@@ -7761,6 +7805,11 @@
       postDetailWidth(n2, o) {
         this.checkIsTooLong(n2);
       },
+      replyNavigationFloor(floor) {
+        if (floor && functions.containsReplyFloor(this.modelValue, floor)) {
+          this.expand = true;
+        }
+      },
     },
     computed: {
       CommentDisplayType() {
@@ -7781,6 +7830,11 @@
     },
     methods: {
       checkIsTooLong(postDetailWidth) {
+        if (this.replyNavigationFloor &&
+            functions.containsReplyFloor(this.modelValue, this.replyNavigationFloor)) {
+          this.expand = true;
+          return;
+        }
         if (postDetailWidth !== 0) {
           let rect = this.$refs.comment.getBoundingClientRect();
           let ban = postDetailWidth * 0.6;
@@ -9118,6 +9172,8 @@
     provide() {
       return {
         postDetailWidth: vue.computed(() => this.postDetailWidth),
+        replyNavigationFloor: vue.computed(() => this.replyNavigationFloor),
+        jumpToTopReply: (floor) => this.jumpToTopReply(floor),
       };
     },
     props: {
@@ -9142,8 +9198,16 @@
       displayType: CommentDisplayType.FloorInFloorNoCallUser,
     },
     data() {
+      let topReplyCollapsed = false;
+      try {
+        topReplyCollapsed = sessionStorage.getItem("v2p_top_reply_collapsed") === "1";
+      } catch (err) {
+        // 存储不可用时默认展开
+      }
       return {
         isSticky: false,
+        topReplyCollapsed,
+        replyNavigationFloor: 0,
         selectCallIndex: 0,
         postDetailWidth: 0,
         showCallList: false,
@@ -9315,6 +9379,7 @@
     },
     watch: {
       "post.id"(n2, o) {
+        this.replyNavigationFloor = 0;
         if (this.$refs["post-editor"]) {
           this.$refs["post-editor"].content = "";
           vue.nextTick(() => {
@@ -9628,7 +9693,73 @@
         }, 2e3);
       },
       collapseTopReplyList() {
-        $(this.$refs.topReply).slideToggle("fast");
+        this.setTopReplyCollapsed(!this.topReplyCollapsed);
+      },
+      setTopReplyCollapsed(collapsed) {
+        this.topReplyCollapsed = collapsed;
+        try {
+          sessionStorage.setItem("v2p_top_reply_collapsed", collapsed ? "1" : "0");
+        } catch (err) {
+          // 存储不可用时仅在本页生效
+        }
+      },
+      async jumpToTopReply(floor) {
+        this.setTopReplyCollapsed(false);
+        await vue.nextTick();
+        const list = this.$refs.topReply;
+        const target = list && list.querySelector(`[data-v2p-top-floor="${Number(floor)}"]`);
+        functions.highlightReplyTarget(target);
+      },
+      async jumpToOriginalReply(floor) {
+        floor = Number(floor);
+        const reply = this.post.replyList.find((item) => Number(item.floor) === floor);
+        if (!reply) return;
+        this.showRelationReply = false;
+        if (this.displayType === CommentDisplayType.OnlyOp && !reply.isOp &&
+            reply.username !== this.post.member.username) {
+          this.$emit("update:displayType", CommentDisplayType.V2exOrigin);
+        }
+        this.replyNavigationFloor = 0;
+        await vue.nextTick();
+        this.replyNavigationFloor = floor;
+        await vue.nextTick();
+        const target = this.$el.querySelector(`.comment-wrapper .c_${floor}`);
+        functions.highlightReplyTarget(target);
+      },
+      renderTopReplySummary(item) {
+        vue.openBlock();
+        return vue.createElementBlock("article", {
+          key: `${this.post.id}:${item.id}`,
+          class: "v2p-top-reply-item",
+          "data-v2p-top-floor": item.floor,
+        }, [
+          vue.createElementVNode("div", { class: "v2p-top-reply-meta" }, [
+            vue.createElementVNode("button", {
+              type: "button",
+              class: "v2p-top-reply-floor",
+              title: `查看原回复 #${item.floor}`,
+              onClick: () => this.jumpToOriginalReply(item.floor),
+            }, `#${item.floor} ↓`, 9, ["onClick"]),
+            vue.createElementVNode("a", {
+              href: `/member/${encodeURIComponent(item.username)}`,
+              class: "v2p-top-reply-member",
+            }, item.username, 1),
+            vue.createElementVNode("div", { class: "v2p-top-reply-thanks" }, [
+              vue.createVNode(Point, {
+                item,
+                "api-url": `reply/${item.id}`,
+                onAddThank: () => eventBus.emit(CMD.CHANGE_COMMENT_THANK, { id: item.id, type: "add" }),
+                onRecallThank: () => eventBus.emit(CMD.CHANGE_COMMENT_THANK, { id: item.id, type: "recall" }),
+              }, null, 8, ["item", "api-url", "onAddThank", "onRecallThank"]),
+            ]),
+          ]),
+          vue.createElementVNode("button", {
+            type: "button",
+            class: "v2p-top-reply-content",
+            title: "定位到下方原始回复",
+            onClick: () => this.jumpToOriginalReply(item.floor),
+          }, functions.getTopReplySummary(item), 9, ["onClick"]),
+        ], 8, ["data-v2p-top-floor"]);
       },
       goBottom() {
         this.currentFloor = "";
@@ -10215,9 +10346,11 @@
                     ? (vue.openBlock(),
                       vue.createElementBlock("div", _hoisted_19, [
                         vue.createElementVNode(
-                          "div",
+                          "button",
                           {
-                            class: "my-cell flex",
+                            type: "button",
+                            class: "my-cell flex v2p-top-reply-header",
+                            "aria-expanded": !$data.topReplyCollapsed,
                             onClick:
                               _cache[2] ||
                               (_cache[2] = vue.withModifiers(
@@ -10232,30 +10365,23 @@
                               (_cache[39] = vue.createElementVNode(
                                 "span",
                                 null,
-                                "高赞回复",
+                                "高赞导读",
                                 -1,
                               )),
-                            vue.createElementVNode("div", _hoisted_20, [
-                              vue.createVNode(
-                                _component_Tooltip,
-                                { title: "收起高赞回复" },
-                                {
-                                  default: vue.withCtx(() => [
-                                    vue.createElementVNode("div", _hoisted_21, [
-                                      vue.createVNode(_component_Icon, {
-                                        icon: "gravity-ui:chevrons-collapse-vertical",
-                                      }),
-                                    ]),
-                                  ]),
-                                  _: 1,
-                                },
-                              ),
-                            ]),
+                            vue.createElementVNode("span", {
+                              class: "v2p-top-reply-toggle",
+                            }, $data.topReplyCollapsed ? "展开" : "收起", 1),
                           ],
+                          8,
+                          ["aria-expanded"],
                         ),
                         vue.createElementVNode(
                           "div",
-                          _hoisted_22,
+                          {
+                            ref: "topReply",
+                            class: "v2p-top-reply-list",
+                            style: $data.topReplyCollapsed ? { display: "none" } : null,
+                          },
                           [
                             (vue.openBlock(true),
                             vue.createElementBlock(
@@ -10263,31 +10389,12 @@
                               null,
                               vue.renderList(
                                 $options.post.topReplyList,
-                                (item, index) => {
-                                  return (
-                                    vue.openBlock(),
-                                    vue.createBlock(
-                                      _component_Comment,
-                                      {
-                                        key: item.floor,
-                                        type: "top",
-                                        modelValue:
-                                          $options.post.topReplyList[index],
-                                        "onUpdate:modelValue": ($event) =>
-                                          ($options.post.topReplyList[index] =
-                                            $event),
-                                      },
-                                      null,
-                                      8,
-                                      ["modelValue", "onUpdate:modelValue"],
-                                    )
-                                  );
-                                },
+                                (item) => $options.renderTopReplySummary(item),
                               ),
                               128,
                             )),
                           ],
-                          512,
+                          4,
                         ),
                       ]))
                     : vue.createCommentVNode("", true),

@@ -2,8 +2,8 @@
 // @name         V2EX Pro - H5
 // @namespace    https://github.com/git710/V2EX-Pro
 // @version      1.0.6
-// @description  V2EX 网页增强脚本（移动端 H5）：四套主题、回复定位与预览、楼层直达、用户标签、高赞回复、楼中楼优化、表情回复、整页 Base64 解析、节点导航自定义、WebDAV 配置同步、自动签到。须与「V2EX Pro - H5 style」样式脚本一同启用。
-// @description:zh-CN  V2EX 网页增强脚本（移动端 H5）：四套主题、回复定位与预览、楼层直达、用户标签、高赞回复、楼中楼优化、表情回复、整页 Base64 解析、节点导航自定义、WebDAV 配置同步、自动签到。须与「V2EX Pro - H5 style」样式脚本一同启用。
+// @description  V2EX 网页增强脚本（移动端 H5）：四套主题、回复定位与预览、楼层直达、用户标签、高赞导读与双向定位、楼中楼优化、表情回复、整页 Base64 解析、节点导航自定义、WebDAV 配置同步、自动签到。须与「V2EX Pro - H5 style」样式脚本一同启用。
+// @description:zh-CN  V2EX 网页增强脚本（移动端 H5）：四套主题、回复定位与预览、楼层直达、用户标签、高赞导读与双向定位、楼中楼优化、表情回复、整页 Base64 解析、节点导航自定义、WebDAV 配置同步、自动签到。须与「V2EX Pro - H5 style」样式脚本一同启用。
 // @author       git710
 // @license      GPL-3.0
 // @homepageURL  https://github.com/qytz/V2EX-Pro
@@ -3681,7 +3681,7 @@ function getCommentDataList({
           replyFloor = Number(floorMatch[1]);
         }
       }
-      // 高赞回复的副本是纯文本渲染，图片单独带出来，避免图片回复显示成空白
+      // 保留图片信息，供高赞导读显示「含图片」提示。
       const imageSrcs = Array.from($content.find("img"), (img) =>
         $(img).prop("src"),
       );
@@ -6509,60 +6509,74 @@ function pickTopReplies(replyList, minLikeCount, maxTopCount) {
   });
   return candidatePool.slice(0, maxTopCount);
 }
-function jumpToCommentCell(id, page) {
+function jumpToCommentCell(id, page, floor) {
   const cellDom = document.getElementById(id);
-  if (!cellDom) {
-    // 该回复在别的分页，当前页没有对应节点，告知用户去哪看
-    createToast({
-      message: `该回复在第 ${page} 页，翻到该页即可查看`,
-      type: "info",
-    });
-    return;
-  }
-  cellDom.scrollIntoView({ behavior: "smooth", block: "center" });
-  cellDom.classList.add("v2p-top-reply-flash");
-  setTimeout(() => {
-    cellDom.classList.remove("v2p-top-reply-flash");
-  }, 1600);
+  if (cellDom) return flashAndScrollCommentCell(cellDom);
+  // 复用现有跨页落地定位，不再只提示用户手动翻页。
+  return requestFloorJump(Number(floor) || (Number(page) - 1) * FLOOR_PAGE_SIZE + 1);
 }
-function buildTopReplyNode(item, level = 0) {
+function getTopReplySummary(item) {
+  const text = String(item.replyText || "").replace(/\s+/g, " ").trim();
+  const imageHint = item.hasImage || (item.imageSrcs || []).length ? " [含图片]" : "";
+  return (text.slice(0, 180) + (text.length > 180 ? "…" : "") + imageHint).trim() || "点击查看原回复";
+}
+function setTopReplyCollapsed($box, collapsed, persist = true) {
+  $box.toggleClass("v2p-top-reply-collapsed", collapsed);
+  $box.find(".v2p-top-reply-toggle").text(collapsed ? "展开" : "收起");
+  $box.find(".v2p-top-reply-header").attr("aria-expanded", String(!collapsed));
+  if (persist) {
+    try {
+      sessionStorage.setItem("v2p_top_reply_collapsed", collapsed ? "1" : "0");
+    } catch {
+      // 存储不可用时仅在本页生效
+    }
+  }
+}
+function jumpToTopReply(id) {
+  const $box = $(".v2p-top-reply-box");
+  const target = $box.find(".v2p-top-reply-item").filter((_, el) => el.dataset.id === id)[0];
+  if (!target) return false;
+  setTopReplyCollapsed($box, false);
+  $box.show();
+  const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
+  clearTimeout(target.__v2pReplyFlashTimer);
+  target.classList.remove("v2p-reply-navigation-flash");
+  void target.offsetWidth;
+  target.classList.add("v2p-reply-navigation-flash");
+  target.__v2pReplyFlashTimer = setTimeout(() => {
+    target.classList.remove("v2p-reply-navigation-flash");
+  }, 1800);
+  return true;
+}
+function updateTopReplyBadges(topReplyList) {
+  $commentCells.find(".v2p-top-reply-badge").remove();
+  const topIds = new Set(topReplyList.map((item) => String(item.id)));
+  $commentCells.each((_, cell) => {
+    if (!topIds.has(cell.id)) return;
+    const $author = $(cell).find("> table > tbody > tr > td:nth-child(3) > strong").first();
+    const $badge = $('<button type="button" class="v2p-top-reply-badge" title="返回高赞导读中的这条回复">高赞 ↑</button>');
+    $badge.on("click.v2p-top-reply", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      jumpToTopReply(cell.id);
+    });
+    $author.after($badge);
+  });
+}
+function buildTopReplyNode(item) {
   const memberLink = String(item.memberLink ?? `/member/${item.username}`);
-  const $item = $(`
-    <div class="v2p-top-reply-item${level > 0 ? " v2p-top-reply-child" : ""}" data-id="${item.id}" data-page="${item.page}" style="--v2p-top-reply-level: ${level}">
+  return $(`
+    <div class="v2p-top-reply-item" data-id="${escapeHTML(String(item.id))}" data-page="${Number(item.page) || 1}" data-floor="${Number(item.floor)}">
       <div class="v2p-top-reply-meta">
-        <a class="v2p-top-reply-floor" href="#${item.id}">#${item.floor}</a>
+        <button type="button" class="v2p-top-reply-floor" title="查看原回复">#${Number(item.floor)} ↓</button>
         <a class="v2p-top-reply-member" href="${escapeHTML(memberLink)}">${escapeHTML(item.username)}</a>
         <span class="v2p-top-reply-likes"><span class="v2p-icon-heart"><i data-lucide="heart"></i></span> ${item.thankCount}</span>
-        <span class="v2p-control v2p-control-thank${item.thanked ? " v2p-thanked" : " v2p-hover-btn"}" data-id="${item.id}" data-member-name="${escapeHTML(item.username)}"><i data-lucide="heart"></i></span>
+        <span class="v2p-control v2p-control-thank${item.thanked ? " v2p-thanked" : " v2p-hover-btn"}" data-id="${escapeHTML(String(item.id))}" data-member-name="${escapeHTML(item.username)}"><i data-lucide="heart"></i></span>
       </div>
+      <button type="button" class="v2p-top-reply-content" title="定位到原始回复">${escapeHTML(getTopReplySummary(item))}</button>
     </div>
   `);
-  if (item.parent) {
-    $item.append(
-      $(`
-        <div class="v2p-top-reply-parent" data-id="${item.parent.id}" data-page="${item.parent.page}" title="点击跳转至原回复楼层 #${item.parent.floor}">
-          <span class="v2p-top-reply-parent-tag">#${item.parent.floor} @${escapeHTML(item.parent.username)}：</span><span class="v2p-top-reply-parent-text">${escapeHTML(item.parent.text)}</span>
-        </div>
-      `),
-    );
-  }
-  $item.append(
-    $(`<div class="v2p-top-reply-content">${escapeHTML(item.replyText)}</div>`),
-  );
-  // 副本是纯文本渲染，图片回复单独把原图带出来，避免显示成空白卡片
-  if ((item.imageSrcs || []).length > 0) {
-    $item.append(
-      $(
-        `<div class="v2p-top-reply-imgs">${item.imageSrcs
-          .map((src) => `<img src="${escapeHTML(String(src))}" alt="" />`)
-          .join("")}</div>`,
-      ),
-    );
-  }
-  (item.children || []).forEach((child) => {
-    $item.append(buildTopReplyNode(child, level + 1));
-  });
-  return $item;
 }
 // 原楼层与高赞回复副本共用同一套感谢逻辑：成功后就地同步赞数，不重排列表
 function onThankControlClick(ev) {
@@ -6628,7 +6642,11 @@ function onThankControlClick(ev) {
     },
   });
 }
+var topReplyRenderRun = 0;
 async function handleTopReplies({ options, commentDataList }) {
+  const renderRun = ++topReplyRenderRun;
+  $(".v2p-top-reply-box").remove();
+  $commentCells.find(".v2p-top-reply-badge").remove();
   const topReplyOptions = options.topReply;
   if (!topReplyOptions?.enabled) return;
   if ($commentBox.length === 0) return;
@@ -6660,16 +6678,16 @@ async function handleTopReplies({ options, commentDataList }) {
       writeTopReplyCache(cacheKey, { ...scope, list: topReplyList });
     }
   }
-  if (topReplyList.length === 0) return;
+  if (renderRun !== topReplyRenderRun || topReplyList.length === 0) return;
   const $box = $(`
     <div class="cell v2p-top-reply-box">
-      <div class="v2p-top-reply-header v2p-hover-btn">
-        <span class="v2p-top-reply-title"><i data-lucide="star"></i>高赞回复</span>
+      <button type="button" class="v2p-top-reply-header v2p-hover-btn" aria-expanded="true">
+        <span class="v2p-top-reply-title"><i data-lucide="star"></i>高赞导读</span>
         <span class="v2p-top-reply-meta">
           <span class="v2p-top-reply-scope"></span>
           <span class="v2p-top-reply-toggle">收起</span>
         </span>
-      </div>
+      </button>
       <div class="v2p-top-reply-list"></div>
     </div>
   `);
@@ -6684,28 +6702,24 @@ async function handleTopReplies({ options, commentDataList }) {
   }
   const $list = $box.find(".v2p-top-reply-list");
   topReplyList.forEach((item) => {
-    $list.append(buildTopReplyNode(item, 0));
+    $list.append(buildTopReplyNode(item));
   });
+  let collapsed = false;
+  try {
+    collapsed = sessionStorage.getItem("v2p_top_reply_collapsed") === "1";
+  } catch {
+    // 存储不可用时默认展开
+  }
+  setTopReplyCollapsed($box, collapsed, false);
   $box.find(".v2p-top-reply-header").on("click", () => {
-    const collapsed = $box
-      .toggleClass("v2p-top-reply-collapsed")
-      .hasClass("v2p-top-reply-collapsed");
-    $box.find(".v2p-top-reply-toggle").text(collapsed ? "展开" : "收起");
+    setTopReplyCollapsed($box, !$box.hasClass("v2p-top-reply-collapsed"));
   });
-  // 副本里的感谢按钮：已感谢过的不再绑定，避免重复弹确认框
   $box.find(".v2p-control-thank:not(.v2p-thanked)").on("click", onThankControlClick);
-  const jumpFrom = (target) => {
-    const $target = $(target);
-    jumpToCommentCell($target.attr("data-id"), $target.attr("data-page"));
-  };
-  $box.find(".v2p-top-reply-item").on("click", (ev) => {
-    if ($(ev.target).closest("a").length) return;
-    ev.stopPropagation();
-    jumpFrom(ev.currentTarget);
-  });
-  $box.find(".v2p-top-reply-parent").on("click", (ev) => {
-    ev.stopPropagation();
-    jumpFrom(ev.currentTarget);
+  $box.find(".v2p-top-reply-floor, .v2p-top-reply-content").on("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = $(event.currentTarget).closest(".v2p-top-reply-item")[0];
+    jumpToCommentCell(target.dataset.id, target.dataset.page, target.dataset.floor);
   });
   // 高赞块插在回复列表上方会把内容整体下推，记录插入前目标楼的视口位置
   const shouldRealign =
@@ -6716,6 +6730,7 @@ async function handleTopReplies({ options, commentDataList }) {
     ? lastJumpTargetCell.getBoundingClientRect().top
     : null;
   $commentBox.before($box);
+  updateTopReplyBadges(topReplyList);
   // 高赞回复异步加载完成时，恢复的「只看楼主」模式可能已经生效
   $box.toggle(replyViewMode !== "op");
   // 用户刚做过楼层定位且目标仍在视口附近时，补偿插入造成的位移而不再重新居中

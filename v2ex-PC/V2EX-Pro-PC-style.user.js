@@ -4060,6 +4060,93 @@ body :is(.topic_content, .reply_content) a[href^="http"]:hover {
   border-right: 2px solid var(--v2-primary) !important;
 }
 
+/* 高赞导读：仅展示摘要，正文与讨论保留在原楼层。 */
+.v2p-top-reply-header {
+  width: 100%;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  color: var(--v2p-color-font-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.v2p-top-reply-toggle {
+  font-size: 12px;
+  color: var(--v2p-color-font-tertiary);
+}
+.v2p-top-reply-list { padding: 0 12px 12px; }
+.v2p-top-reply-item {
+  padding: 10px;
+  border: 1px solid var(--v2p-color-border);
+  border-radius: 8px;
+}
+.v2p-top-reply-item + .v2p-top-reply-item { margin-top: 8px; }
+.v2p-top-reply-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.v2p-top-reply-member { color: var(--v2p-color-font-primary); }
+.v2p-top-reply-thanks { margin-left: auto; }
+.v2p-top-reply-floor,
+.v2p-top-reply-content {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  text-shadow: none;
+  cursor: pointer;
+}
+.v2p-top-reply-floor { color: var(--v2p-color-accent-500); }
+.v2p-top-reply-content {
+  display: -webkit-box;
+  width: 100%;
+  overflow: hidden;
+  margin-top: 6px;
+  color: var(--v2p-color-font-secondary);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.v2p-top-reply-badge {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--v2p-color-border);
+  border-radius: 6px;
+  background: var(--v2p-color-bg-block);
+  color: var(--v2p-color-accent-500);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.v2p-top-reply-badge:focus-visible,
+.v2p-top-reply-content:focus-visible,
+.v2p-top-reply-floor:focus-visible,
+.v2p-top-reply-header:focus-visible {
+  outline: 2px solid var(--v2p-color-accent-500);
+  outline-offset: 2px;
+}
+.v2p-reply-navigation-flash {
+  outline: 2px solid var(--v2p-color-accent-500);
+  outline-offset: 2px;
+  animation: v2p-reply-navigation-flash 1.8s ease-in-out;
+}
+@keyframes v2p-reply-navigation-flash {
+  30%, 60% { box-shadow: 0 0 0 4px var(--v2p-color-bg-block); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v2p-reply-navigation-flash { animation: none; }
+}
+
 /* 高赞/嵌套容器：透明底转细边框卡片 */
 .top-reply-wrap[data-v-984ba483] {
   background: transparent !important;
