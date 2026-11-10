@@ -4228,6 +4228,11 @@ html.dark body :is(.topic_content, .reply_content) :not(pre) > code {
   }
 }
 
+/* 清除原站热议标题的白色文字阴影，避免深色主题出现重影；与 H5 保持一致。 */
+body .item_hot_topic_title {
+  text-shadow: none;
+}
+
 /* 访问过的主题标题：!important 用于压住逻辑文件内联样式的纯色标题，伪类特异度更高确保生效 */
 .item_title a:visited,
 .topic-link:visited,
